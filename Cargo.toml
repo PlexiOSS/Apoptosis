@@ -4,12 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-mluau = { git = "https://github.com/mluau/mluau", features = ["serde"] }
-mlua_scheduler = { git = "https://github.com/mluau/scheduler" }
-mluau-require = { git = "https://github.com/mluau/mluau-require" }
+khronos_runtime = { git = "https://github.com/anti-raid/khronos" }
+khronos_ext = { git = "https://github.com/anti-raid/khronos" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serenity = { git = "https://github.com/infinitybotlist/serenity-apoptosis", branch = "next" }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
 tokio = { version = "1.48.0", features = ["full"] }
 kittycat = { git = "https://github.com/infinitybotlist/kittycat" }
@@ -58,3 +56,12 @@ chrono_lc = "0.1"
 serde_bytes = "0.11.19"
 image = "0.25.9"
 serde_yaml = "0.9.34"
+
+# discord event gateway
+stratum_client = { git = "https://github.com/anti-raid/stratum" }
+stratum_common = { git = "https://github.com/anti-raid/stratum" }
+
+[dependencies.serenity]
+git = "https://github.com/Anti-Raid/serenity"
+branch = "next"
+features = ["model", "http", "cache", "rustls_backend", "unstable"]

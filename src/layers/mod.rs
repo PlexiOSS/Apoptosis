@@ -2,8 +2,8 @@ pub mod sample;
 pub mod api;
 
 #[derive(Clone)]
-pub(super) struct DummyData {}
-impl mluau::UserData for DummyData {}
+pub struct DummyData {}
+impl khronos_runtime::rt::mluau::UserData for DummyData {}
 
 #[macro_export]
 /// Macro to initialize a layer
@@ -54,13 +54,14 @@ macro_rules! layer {
         pub mod $mod {
             use super::{$msg_type, $config_type};
             use std::rc::Rc;
-            use crate::service::{layer::{DispatchLayerResult, Layer, LayerData, SharedLayerData, NewLayerOpts}, lua::{Vm, RuntimeCreateOpts}, sharedlayer::SharedLayer, vfs::get_luau_vfs};
+            use crate::service::{layer::{DispatchLayerResult, Layer, LayerData, SharedLayerData, NewLayerOpts}, sharedlayer::SharedLayer, vfs::get_luau_vfs};
+            use khronos_runtime::rt::{runtime::KhronosRuntime, RuntimeCreateOpts};
             use crate::layers::DummyData;
 
             #[derive(Clone)]
             $(#[$attr])*
             pub struct $name {
-                vm: Rc<Vm>,
+                vm: Rc<KhronosRuntime>,
                 layer_data: LayerData<Self>,
             }
 

@@ -1,5 +1,5 @@
 use kittycat::perms as kittycat_perms;
-use mluau::prelude::*;
+use khronos_runtime::rt::mluau::prelude::*;
 
 use super::optional_value::OptionalValue;
 

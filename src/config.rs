@@ -13,6 +13,10 @@ pub struct Config {
     pub cdn_path: String,
     /// Proxy URL for outgoing requests
     pub proxy_url: String,
+    /// Stratum server for listening to discord
+    pub stratum_server: String,
+    /// Stratum grpc access key
+    pub stratum_grpc_access_key: String
 }
 
 impl Config {

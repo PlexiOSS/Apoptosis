@@ -2,8 +2,8 @@ use crate::entity::{EntityFlags, manager::EntityManager};
 
 use super::Entity;
 use bitflags::Flags;
-use mluau::prelude::*;
-use mlua_scheduler::LuaSchedulerAsyncUserData;
+use khronos_runtime::rt::mluau::prelude::*;
+use khronos_runtime::rt::mlua_scheduler::LuaSchedulerAsyncUserData;
 
 /// Wrapper struct to expose EntityManager to Lua
 pub struct LuaEntityManager<T: Entity>(EntityManager<T>);

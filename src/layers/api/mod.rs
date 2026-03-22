@@ -3,7 +3,7 @@ pub mod extractors;
 pub mod public_api;
 
 use std::rc::Rc;
-use crate::service::lua::{RuntimeCreateOpts, Vm};
+use khronos_runtime::rt::{RuntimeCreateOpts, KhronosRuntime};
 use crate::service::layer::{DispatchLayerResult, Layer, LayerData, NewLayerOpts, SharedLayerData};
 use crate::service::axum::Axum;
 use crate::service::sharedlayer::SharedLayer;
@@ -12,7 +12,7 @@ use crate::service::vfs::get_luau_vfs;
 
 #[derive(Clone)]
 pub struct ApiLayer {
-    vm: Rc<Vm>,
+    vm: Rc<KhronosRuntime>,
     layer_data: LayerData<Self>,
 }
 
@@ -42,6 +42,8 @@ impl Layer for ApiLayer {
 
         let layer_data = Self::create_layer_data(sl, &vm)
         .map_err(|e| format!("Failed to create layer data: {e}"))?;
+
+        // TODO: Actually spin up API sercer
 
         Ok(Self {
             layer_data,

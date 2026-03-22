@@ -1,5 +1,5 @@
-use mlua_scheduler::LuaSchedulerAsyncUserData;
-use mluau::prelude::*;
+use khronos_runtime::rt::mlua_scheduler::LuaSchedulerAsyncUserData;
+use khronos_runtime::rt::mluau::prelude::*;
 use serde::{Serialize, de::DeserializeOwned};
 use std::rc::Rc;
 use tokio::task::spawn_local;
@@ -12,9 +12,10 @@ use tokio::{
     },
 };
 use tokio_util::sync::CancellationToken;
-use crate::service::lua::{
-    OnBrokenFunc, RuntimeCreateOpts, Vm
+use khronos_runtime::rt::{
+    runtime::OnBrokenFunc, RuntimeCreateOpts, KhronosRuntime
 };
+use crate::service::kittycat::kittycat_base_tab;
 use crate::service::optional_value::OptionalValue;
 use crate::service::sharedlayer::{LuaSharedLayer, SharedLayer};
 
@@ -116,7 +117,7 @@ pub trait Layer: Clone + Sized + 'static {
     /// Create a LayerData object for this layer
     fn create_layer_data(
         layer_data: Self::LayerData,
-        vm: &Vm
+        vm: &KhronosRuntime
     ) -> LuaResult<LayerData<Self>> {
         vm.with_lua(|lua| LayerData::new(layer_data, lua))
     }
@@ -128,12 +129,11 @@ pub trait Layer: Clone + Sized + 'static {
         opts: RuntimeCreateOpts,
         vfs: FS,
         on_broken: Option<OnBrokenFunc>,
-    ) -> Result<Vm, Box<dyn std::error::Error + Send + Sync>> 
+    ) -> Result<KhronosRuntime, Box<dyn std::error::Error + Send + Sync>> 
     where
-        FS: mluau_require::vfs::FileSystem + 'static,
+        FS: khronos_runtime::mluau_require::vfs::FileSystem + 'static,
     {
-        let vm = Vm::new(opts, vfs)
-            .await
+        let vm = KhronosRuntime::new(opts, None::<(fn(&Lua, LuaThread) -> Result<(), LuaError>, fn(LuaLightUserData) -> ())>, vfs, "omniplex-rust")
             .map_err(|e| format!("Failed to create VM for layer {}: {}", Self::name(), e))?;
 
         if let Some(on_broken) = on_broken {
@@ -144,28 +144,33 @@ pub trait Layer: Clone + Sized + 'static {
             }));
         }
 
+        vm.with_lua(|lua| {
+            lua.register_module("@omniplex-rust/kittycat", kittycat_base_tab(lua)?)
+        })
+        .map_err(|e| format!("Failed to create VM for layer {}: {}", Self::name(), e))?;
+
         Ok(vm)
     }
 
     /// Dispatches a message to a VM at the given path
     async fn dispatch_to_vm<A>(
-        vm: &Vm,
+        vm: &KhronosRuntime,
         path: &str,
         layer_data: LayerData<Self>,
         msg: Self::Message,
     ) -> LuaResult<A> 
     where
-        A: mluau::FromLua
+        A: FromLua
     {
         let ctx: Context<Self> = Context::new(layer_data, msg);
-        let func = vm.eval_script::<mluau::Function>(path)?;
+        let func = vm.eval_script::<LuaFunction>(path)?;
         let res: A = vm.call_in_scheduler(func, ctx).await?;
         Ok(res)
     }
 
     /// Same as dispatch_to_vm but with return as a serde type
     async fn dispatch_to_vm_serde<T>(
-        vm: &Vm,
+        vm: &KhronosRuntime,
         layer_data: LayerData<Self>,
         msg: Self::Message,
         entrypoint: &str,

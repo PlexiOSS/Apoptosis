@@ -1,5 +1,5 @@
-use mlua_scheduler::LuaSchedulerAsyncUserData;
-use mluau::prelude::*;
+use khronos_runtime::rt::mlua_scheduler::LuaSchedulerAsyncUserData;
+use khronos_runtime::rt::mluau::prelude::*;
 use sqlx::Row;
 
 /// CacheServerManager provides methods to manage the cache servers for bots
