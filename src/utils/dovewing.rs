@@ -4,6 +4,7 @@ use serenity::all::UserId;
 use sqlx::PgPool;
 use serenity::model::user::OnlineStatus;
 use chrono::{DateTime, Utc};
+use stratum_client::GetResourceRequest;
 use super::stratum::Stratum;
 use crate::types::dovewing::PlatformUser;
 
@@ -21,11 +22,22 @@ impl DovewingSource {
         }
     }
 
-    /// Fetch user and store banner if needed
-    pub async fn user(&self, _user_id: &str) -> Result<serde_json::Value, crate::Error> {
+    /// Fetch member if possible
+    pub async fn member(&self, user_id: &str) -> Result<Option<serde_json::Value>, crate::Error> {
         match self {
-            DovewingSource::Discord(_c) => {
-                todo!("Support get guild ids in stratum");
+            DovewingSource::Discord(s) => {
+                let Some(guild_ids) = s.get_parsed_resource_from_cache::<Vec<String>>(GetResourceRequest::GuildIds).await? else {
+                    return Err("internal error: stratum returned no guild ids".into())
+                };
+                let user_id = user_id.parse()?;
+                for guild_id in guild_ids {
+                    let guild_id = guild_id.parse()?;
+                    if let Some(cached_user) = s.get_resource_from_cache(GetResourceRequest::GuildMember { guild_id, user_id }).await? {
+                        return Ok(Some(cached_user))
+                    }
+                }
+
+                return Ok(None)
             }
         }
     }
