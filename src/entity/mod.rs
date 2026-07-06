@@ -1,6 +1,5 @@
 pub mod entities;
 pub mod manager;
-pub mod lua;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
