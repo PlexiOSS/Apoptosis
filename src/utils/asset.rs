@@ -2,7 +2,6 @@ use std::io::Cursor;
 
 use chrono::{DateTime, Utc};
 use image::{DynamicImage, ImageFormat};
-use khronos_runtime::rt::mluau::prelude::*;
 
 use crate::{config::CONFIG, entity::Entity, types::asset::AssetMetadata};
 
@@ -14,44 +13,6 @@ pub enum AssetContentType {
     Jpg,
     Gif,
     WebP,
-}
-
-impl FromLua for AssetContentType {
-    fn from_lua(value: LuaValue, _lua: &Lua) -> LuaResult<Self> {
-        match value {
-            LuaValue::String(s) => {
-                let s = s.to_str()?;
-                match s.as_ref() {
-                    "png" => Ok(AssetContentType::Png),
-                    "jpg" | "jpeg" => Ok(AssetContentType::Jpg),
-                    "gif" => Ok(AssetContentType::Gif),
-                    "webp" => Ok(AssetContentType::WebP),
-                    other => Err(LuaError::FromLuaConversionError {
-                        from: "string",
-                        to: "AssetContentType".to_string(),
-                        message: Some(format!("unknown asset content type: {}", other)),
-                    }),
-                }
-            },
-            other => Err(LuaError::FromLuaConversionError {
-                from: other.type_name(),
-                to: "AssetContentType".to_string(),
-                message: Some("expected a string".to_string()),
-            }),
-        }
-    }
-}
-
-impl IntoLua for AssetContentType {
-    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
-        let s = match self {
-            AssetContentType::Png => "png",
-            AssetContentType::Jpg => "jpg",
-            AssetContentType::Gif => "gif",
-            AssetContentType::WebP => "webp",
-        };
-        Ok(LuaValue::String(lua.create_string(s)?))
-    }
 }
 
 impl AssetContentType {
