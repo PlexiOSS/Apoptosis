@@ -11,7 +11,7 @@ macro_rules! layer_init {
     ($opts:ident) => {
         {
             use crate::layers::DummyData;
-            let shared = SharedLayer::new($opts.pool, $opts.diesel);
+            let shared = SharedLayer::new($opts.pool);
             let vm = Self::setup_vm(RuntimeCreateOpts::default(), get_luau_vfs(), None).await?;
 
             let layer_data = Self::create_layer_data(SharedLayerData::new($opts.config, DummyData {}, shared), &vm)

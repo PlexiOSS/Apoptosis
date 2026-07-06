@@ -6,13 +6,12 @@ pub struct DummyObj {}
 #[derive(Debug, Clone)]
 pub struct Dummy {
     pool: sqlx::PgPool,
-    diesel: crate::Db,
 }
 
 impl Dummy {
     /// Creates a new instance of the Dummy entity.
-    pub fn new(pool: sqlx::PgPool, diesel: crate::Db) -> Self {
-        Self { pool, diesel }
+    pub fn new(pool: sqlx::PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -24,10 +23,6 @@ impl Entity for Dummy {
 
     fn pool(&self) -> &sqlx::PgPool {
         &self.pool
-    }
-
-    fn diesel(&self) -> &crate::Db {
-        &self.diesel
     }
 
     fn name(&self) -> &'static str {

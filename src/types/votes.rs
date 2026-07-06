@@ -1,10 +1,8 @@
 use chrono::{DateTime, Utc};
-use diesel::prelude::Queryable;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Queryable)]
-#[diesel(check_for_backend(Pg))]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 /// Represents a vote on an entity.
 pub struct EntityVote {
     /// The internal ID of the entity.

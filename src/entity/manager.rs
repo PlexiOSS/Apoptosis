@@ -1,23 +1,4 @@
 use crate::{entity::{Entity, EntityFlags}, types::votes::{EntityVote, UserVote, VoteInfo}};
-use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl};
-use diesel_async::RunQueryDsl;
-
-diesel::table! {
-    entity_votes (itag) {
-        itag -> Uuid,
-        target_id -> Text,
-        target_type -> Text,
-        author -> Text,
-        upvote -> Bool,
-        void -> Bool,
-        void_reason -> Nullable<Text>,
-        created_at -> Timestamptz,
-        vote_num -> Int4,
-        voided_at -> Nullable<Timestamptz>,
-        immutable -> Bool,
-        credit_redeem -> Nullable<Uuid>,
-    }
-}
 
 pub struct EntityManager<E: Entity> {
     entity: E
@@ -42,42 +23,25 @@ impl<E: Entity> EntityManager<E> {
 		user_id: &str,
 		id: &str,
 		only_valid: bool, // whether or not to only fetch non-void votes
-		limit_offset: Option<(u32, u32)>, // (limit, offset)
+		limit_offset: Option<(i64, i64)>, // (limit, offset)
 	) -> Result<Vec<EntityVote>, crate::Error> {
-		
-		let mut base_query_dyn = entity_votes::table
-		.select((
-			entity_votes::itag,
-			entity_votes::target_id,
-			entity_votes::target_type,
-			entity_votes::author,
-			entity_votes::upvote,
-			entity_votes::void,
-			entity_votes::void_reason,
-			entity_votes::voided_at,
-			entity_votes::created_at,
-			entity_votes::vote_num,
-			entity_votes::immutable,
-		))
-		.filter(
-			entity_votes::author.eq(user_id)
-			.and(entity_votes::target_id.eq(id))
-			.and(entity_votes::target_type.eq(self.entity.target_type()))
+		let results = sqlx::query_as::<_, EntityVote>(
+			"SELECT itag, target_type, target_id, author, upvote, void, void_reason, voided_at, created_at, vote_num, immutable
+			FROM entity_votes
+			WHERE author = $1 AND target_id = $2 AND target_type = $3 AND ($4 = false OR void = false) 
+			LIMIT $5 OFFSET $6
+			ORDER BY created_at DESC
+			"
 		)
-		.into_boxed();
-
-		if let Some((limit, offset)) = limit_offset {
-			base_query_dyn = base_query_dyn.limit(limit as i64).offset(offset as i64);
-		}
+		.bind(user_id) // author
+		.bind(id) // target_id
+		.bind(self.entity.target_type())
+		.bind(only_valid)
+		.bind(limit_offset.map(|x| x.0))
+		.bind(limit_offset.map(|x| x.1))
+		.fetch_all(self.entity().pool())
+		.await?;
 		
-		if only_valid {
-			base_query_dyn = base_query_dyn.filter(entity_votes::void.eq(false));
-		}
-
-		base_query_dyn = base_query_dyn.order(entity_votes::created_at.desc());
-
-		let mut conn = self.entity().diesel().get().await?;
-		let results = base_query_dyn.load::<EntityVote>(&mut conn).await?;
 		Ok(results)
 	}
 

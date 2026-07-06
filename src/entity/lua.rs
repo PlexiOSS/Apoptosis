@@ -42,8 +42,8 @@ fetch_votes(
                     if !x.is_normal() || !y.is_normal() {
                         return Err(LuaError::external("Limit offset vector components must be normal numbers"));
                     }
-                    let limit = x as u32;
-                    let offset = y as u32;
+                    let limit = x as i64;
+                    let offset = y as i64;
                     Some((limit, offset))
                 },
                 None => None,

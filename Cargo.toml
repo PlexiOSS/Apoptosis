@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 khronos_runtime = { git = "https://github.com/anti-raid/khronos" }
-khronos_ext = { git = "https://github.com/anti-raid/khronos" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
@@ -17,8 +16,6 @@ indexmap = "2.12.1"
 env_logger = "0.11.8"
 uuid = { version = "1", features = ["v4", "serde"] }
 futures = "0.3.31"
-diesel = { version = "2", features = ["postgres", "chrono", "uuid", "serde_json"] }
-diesel-async = { version = "0.7", features = ["pool", "postgres", "tokio", "tokio-postgres", "async-connection-wrapper", "bb8"]}
 
 # http
 axum = { version = "0.8.4", features = ["macros", "ws"] }
@@ -30,30 +27,13 @@ utoipa-axum = "0.2"
 utoipa-swagger-ui = { version = "9", features = ["axum", "vendored", "reqwest"] }
 
 # luacore/discord deps
-regex = "1"
-arrayvec = "0.7"
-small-fixed-array = "0.4"
-bstr = "1.9"
 rand = { version = "0.9", features = ["std"] }
-percent-encoding = { version = "2" }
 reqwest = { version = "0.12" }
-extract_map = { version = "0.3", features = ["serde"] }
 bitflags = { version = "2", features = ["serde"] }
-
-# blob encryption
-base64 = "0.22"
-aes-gcm = "0.10"
-argon2 = "0.5"
-zeroize = "1"
-
-# storage deps
-tar = "0.4"
 
 # datetime
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = { version = "0.10", features = ["serde"] }
-chrono_lc = "0.1"
-serde_bytes = "0.11.19"
 image = "0.25.9"
 serde_yaml = "0.9.34"
 

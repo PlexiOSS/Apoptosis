@@ -11,7 +11,6 @@ pub mod utils;
 pub mod config;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
-pub type Db = diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>;
 
 #[derive(serde::Deserialize)]
 struct BaseConfig {
@@ -36,20 +35,9 @@ async fn main() {
         .await
         .expect("Could not initialize connection");
 
-    let diesel = {
-        let manager = diesel_async::pooled_connection::AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(&base_config.postgres_url);
-
-        Db::builder()
-            .max_size(base_config.max_db_connections)
-            .build(manager)
-            .await
-            .expect("Failed to create diesel pool")
-    };
-
     // Load up SampleLayer
     let th = layers::sample::samplelayer::SampleLayer::load(NewLayerOpts {
         config: serde_json::from_value(config["sample"].clone()).expect("Failed to deserialize config"),
-        diesel,
         pool,
     });
 

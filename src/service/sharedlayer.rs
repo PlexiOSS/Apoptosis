@@ -1,4 +1,3 @@
-use crate::Db;
 use crate::entity::EntityType;
 use crate::entity::manager::EntityManager;
 use crate::service::session::SessionManager;
@@ -17,23 +16,17 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub(super) struct SharedLayerDb {
     pool: sqlx::PgPool,
-    diesel: Db,
 }
 
 #[allow(dead_code)]
 impl SharedLayerDb {
-    fn new(pool: sqlx::PgPool, diesel: Db) -> Self {
-        Self { pool, diesel }
+    fn new(pool: sqlx::PgPool) -> Self {
+        Self { pool }
     }
 
     /// Returns the underlying sqlx Postgres pool
     pub(super) fn pool(&self) -> &sqlx::PgPool {
         &self.pool
-    }
-
-    /// Returns the underlying Diesel database connection
-    pub(super) fn diesel(&self) -> &Db {
-        &self.diesel
     }
 
     /// Returns the state of a bot by its user ID on Omni/IBL
@@ -104,7 +97,7 @@ impl SharedLayerDb {
 
     /// Creates a new EntityManager for the given entity type
     pub fn entity_manager_for(&self, target_type: &str) -> Option<crate::entity::AnyEntityManager> {
-        let Some(manager) = EntityType::from_name(target_type, self.pool.clone(), self.diesel.clone()) else {
+        let Some(manager) = EntityType::from_name(target_type, self.pool.clone()) else {
             return None;
         };
         Some(EntityManager::new(manager))
@@ -128,8 +121,8 @@ impl SharedLayer {
     ///
     /// Should be called once per layer
     #[allow(dead_code)]
-    pub fn new(pool: sqlx::PgPool, diesel: Db) -> Self {
-        let db = SharedLayerDb::new(pool.clone(), diesel.clone());
+    pub fn new(pool: sqlx::PgPool) -> Self {
+        let db = SharedLayerDb::new(pool.clone());
         Self {
             cache_server_manager: CacheServerManager::new(pool.clone()),
             session_manager: SessionManager::new(db.clone()),

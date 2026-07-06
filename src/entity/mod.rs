@@ -59,14 +59,7 @@ pub trait Entity: 'static + Send + Sync + Clone {
     type CreateObject: Serialize + for<'de> Deserialize<'de> + Send + Sync;
 
     /// Returns the underlying pool used by this entity
-    /// 
-    /// Not exposed to Lua
     fn pool(&self) -> &sqlx::PgPool;
-
-    /// Returns the underlying diesel connection used by this entity
-    /// 
-    /// Not exposed to Lua
-    fn diesel(&self) -> &crate::Db;
 
     /// Returns the name of the entity type.
     fn name(&self) -> &'static str;
@@ -132,9 +125,9 @@ macro_rules! entity_enum {
         #[allow(unused_variables)]
         impl EntityType {
             /// Creates a new entity type from the given name.
-            pub fn from_name(name: &str, pool: sqlx::PgPool, diesel: crate::Db) -> Option<Self> {
+            pub fn from_name(name: &str, pool: sqlx::PgPool) -> Option<Self> {
                 match name {
-                    $( $matcher => Some(Self::$name(<$entity_type>::new(pool, diesel))), )*
+                    $( $matcher => Some(Self::$name(<$entity_type>::new(pool))), )*
                     _ => None,
                 }
             }
@@ -171,12 +164,6 @@ macro_rules! entity_enum {
             fn pool(&self) -> &sqlx::PgPool {
                 match self {
                     $( Self::$name(e) => e.pool(), )*
-                }
-            }
-
-            fn diesel(&self) -> &crate::Db {
-                match self {
-                    $( Self::$name(e) => e.diesel(), )*
                 }
             }
 

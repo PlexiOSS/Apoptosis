@@ -84,7 +84,6 @@ impl<L: Layer> LayerConfig<L> {
 pub struct NewLayerOpts<L: Layer> {
     pub config: L::Config,
     pub pool: sqlx::PgPool,
-    pub diesel: crate::Db,
 }
 
 /// A layer provides a specific service within Omniplex/IBL

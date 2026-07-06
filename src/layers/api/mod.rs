@@ -31,7 +31,7 @@ impl Layer for ApiLayer {
     }
 
     async fn new(opts: NewLayerOpts<Self>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let shared = SharedLayer::new(opts.pool, opts.diesel);
+        let shared = SharedLayer::new(opts.pool);
         let vm = Self::setup_vm(RuntimeCreateOpts::default(), get_luau_vfs(), None).await?;
 
         let sl = SharedLayerData::new(
