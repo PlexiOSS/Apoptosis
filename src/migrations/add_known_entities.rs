@@ -5,6 +5,7 @@ CREATE TABLE known_entities (
     target_id TEXT NOT NULL, 
     target_type TEXT NOT NULL,
     PRIMARY KEY (target_id, target_type),
+    keid UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(), -- used internally for metadata
 
     -- If target_type is 'bot', _bot_fk becomes the ID. If not, it's NULL.
     _bot_fk TEXT GENERATED ALWAYS AS (
@@ -28,8 +29,8 @@ CREATE TABLE known_entities (
 "#;
 
 pub static MIGRATION: Migration = Migration {
-    id: "add_entity_approx_votes",
-    description: "Add new entity_approx_votes table",
+    id: "add known entities",
+    description: "Add known entities table",
     up: |pool| {
         Box::pin(async move {
             let mut tx = pool.begin().await?;

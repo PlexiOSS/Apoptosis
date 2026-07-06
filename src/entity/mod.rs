@@ -48,7 +48,7 @@ pub struct EntityVoteInfo {
 }
 
 #[allow(async_fn_in_trait)]
-pub trait Entity: 'static + Send + Sync + Clone {
+pub trait Entity: 'static + Send + Sync + Clone + std::fmt::Debug {
     /// The full object type for the entity
     type FullObject: Serialize + for<'de> Deserialize<'de> + Send + Sync;
     /// The public object type for the entity; used in api responses
@@ -133,22 +133,22 @@ macro_rules! entity_enum {
             }
         }
 
-        #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+        #[derive(Debug, Serialize, Deserialize)]
         #[serde(tag = "type")]
         pub enum EntityEnumFullObject {
             $( $name( $full_type ), )*
         }
-        #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+        #[derive(Debug, Serialize, Deserialize)]
         #[serde(tag = "type")]
         pub enum EntityEnumPublicObject {
             $( $name( $public_type ), )*
         } 
-        #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+        #[derive(Debug, Serialize, Deserialize)]
         #[serde(tag = "type")]
         pub enum EntityEnumSummaryObject {
             $( $name( $summary_type ), )*
         }
-        #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+        #[derive(Debug, Serialize, Deserialize)]
         #[serde(tag = "type")]
         pub enum EntityEnumCreateObject {
             $( $name( $create_type ), )*

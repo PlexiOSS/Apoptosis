@@ -1,6 +1,6 @@
 use crate::entity::{Entity, EntityFlags, EntityInfo};
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DummyObj {}
 
 #[derive(Debug, Clone)]

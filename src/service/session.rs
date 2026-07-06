@@ -1,10 +1,7 @@
 use chrono::{Utc, DateTime, Duration};
-use khronos_runtime::rt::mlua_scheduler::LuaSchedulerAsyncUserData;
-use khronos_runtime::rt::mluau::prelude::*;
-use khronos_runtime::core::datetime::DateTime as LuaDateTime;
 use rand::distr::{Alphanumeric, SampleString};
 
-use crate::{entity::{AnyEntityManager, Entity, EntityFlags, lua::LuaEntityManager}, service::sharedlayer::SharedLayerDb, types::auth::Session};
+use crate::{entity::{AnyEntityManager, Entity, EntityFlags}, service::sharedlayer::SharedLayerDb, types::auth::Session};
 
 /// 1 hour expiry time
 const LOGIN_EXPIRY_TIME: Duration = Duration::seconds(3600);
@@ -14,19 +11,6 @@ pub struct CreatedWebSession {
     pub session_id: uuid::Uuid,
     pub token: String,
     pub expires_at: DateTime<Utc>
-}
-
-// Implement conversion to Lua value explicitly to allow using DateTime and other
-// userdata and ensuring the raw created web session isn't serialized in API etc.
-impl IntoLua for CreatedWebSession {
-    fn into_lua(self, lua: &Lua) -> Result<LuaValue, LuaError> {
-        let table = lua.create_table()?;
-        table.set("session_id", self.session_id.to_string())?;
-        table.set("token", self.token)?;
-        table.set("expires_at", LuaDateTime { dt: self.expires_at.with_timezone(&chrono_tz::UTC) })?;
-        table.set_readonly(true);
-        Ok(LuaValue::Table(table))
-    }
 }
 
 /// The response from checking web auth, can be used to control API access
@@ -41,37 +25,6 @@ pub enum SessionPermit {
     },
     InvalidToken,
     EntityNotSupported,
-}
-
-impl IntoLua for SessionPermit {
-    fn into_lua(self, lua: &Lua) -> Result<LuaValue, LuaError> {
-        match self {
-            SessionPermit::Success { session, flags, manager } => {
-                let table = lua.create_table()?;
-                table.set("status", "Success")?;
-                table.set("session", lua.to_value(&session)?)?;
-                table.set("flags", lua.to_value(&flags.bits())?)?;
-                table.set("manager", lua.create_userdata(LuaEntityManager::new(manager))?)?;
-                Ok(LuaValue::Table(table))
-            }
-            SessionPermit::ApiBanned { session } => {
-                let table = lua.create_table()?;
-                table.set("status", "ApiBanned")?;
-                table.set("session", lua.to_value(&session)?)?;
-                Ok(LuaValue::Table(table))
-            }
-            SessionPermit::InvalidToken => {
-                let table = lua.create_table()?;
-                table.set("status", "InvalidToken")?;
-                Ok(LuaValue::Table(table))
-            }
-            SessionPermit::EntityNotSupported => {
-                let table = lua.create_table()?;
-                table.set("status", "EntityNotSupported")?;
-                Ok(LuaValue::Table(table))
-            }
-        }
-    }
 }
 
 /// SessionManager provides methods to manage sessions for entities
@@ -99,8 +52,12 @@ impl SessionManager {
             .await?;
 
         let session: Option<Session> = sqlx::query_as(
-            "SELECT id, name, created_at, type AS session_type, target_type, target_id, expiry 
-             FROM api_sessions WHERE token = $1 AND expiry >= NOW()",
+            "SELECT a.id as id, a.name as name, a.created_at as created_at, a.type AS session_type, a.target_type as target_type, a.target_id as target_id, 
+             a.expiry as expiry, ke.keid as keid
+             FROM api_sessions a 
+             INNER JOIN known_entities ke ON ke.target_type = a.target_type AND ke.target_id = a.target_id 
+             WHERE a.token = $1 AND a.expiry >= NOW()
+            ",
         )
         .bind(token)
         .fetch_optional(self.shared_db.pool())
@@ -144,8 +101,12 @@ impl SessionManager {
     /// Returns the list of all sessions for a user
     pub async fn get_sessions(&self, target_type: &str, target_id: &str) -> Result<Vec<Session>, crate::Error> {
         let sessions: Vec<Session> = sqlx::query_as(
-            "SELECT id, name, created_at, type AS session_type, target_type, target_id, expiry 
-             FROM api_sessions WHERE target_type = $1 AND target_id = $2",
+            "SELECT a.id as id, a.name as name, a.created_at as created_at, a.type AS session_type, a.target_type as target_type, a.target_id as target_id, 
+            a.expiry as expiry, ke.keid as keid
+            FROM api_sessions a
+            INNER JOIN known_entities ke ON ke.target_type = a.target_type AND ke.target_id = a.target_id
+            WHERE a.target_type = $1 AND a.target_id = $2 AND a.expiry >= NOW()
+            ",
         )
         .bind(target_type)
         .bind(target_id)
@@ -241,63 +202,5 @@ impl SessionManager {
             .await?;
 
         Ok(())
-    }
-}
-
-impl LuaUserData for SessionManager {
-    fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
-        methods.add_scheduler_async_method(
-            "GetSessionByToken",
-            |lua, this, token: String| async move {
-                let session = this
-                    .get_session_by_token(&token)
-                    .await
-                    .map_err(LuaError::external)?;
-                lua.to_value(&session)
-            },
-        );
-
-        methods.add_scheduler_async_method("GetPermitFor", async |_lua, this, token: String| {
-            let permit = this
-                .get_permit_for(&token)
-                .await
-                .map_err(|e| LuaError::external(e.to_string()))?;
-            Ok(permit)
-        });
-
-        methods.add_scheduler_async_method("CreateLoginSession", async |_lua, this, (target_type, target_id): (String, String)| {
-            let res = this.create_login_session(&target_type, &target_id).await
-            .map_err(|e| LuaError::external(e.to_string()))?;
-
-            Ok(res)
-        });
-
-        methods.add_scheduler_async_method("CreateApiSession", async |_lua, this, (target_type, target_id, name, expires_at): (String, String, Option<String>, LuaUserDataRef<LuaDateTime<chrono_tz::Tz>>)| {
-            let res = this.create_api_session(&target_type, &target_id, name, expires_at.dt.with_timezone(&Utc)).await
-            .map_err(|e| LuaError::external(e.to_string()))?;
-
-            Ok(res)
-        });
-
-        methods.add_scheduler_async_method("DeleteSession", async |_lua, this, (target_type, target_id, session_id): (String, String, String)| {
-            let session_uuid = match uuid::Uuid::parse_str(&session_id) {
-                Ok(uuid) => uuid,
-                Err(_) => return Err(LuaError::external("Invalid session ID format")),
-            };
-
-            let res = this.delete_session(&target_type, &target_id, session_uuid).await;
-            match res {
-                Ok(()) => Ok(()),
-                Err(e) => Err(LuaError::external(e.to_string())),
-            }
-        });
-
-        methods.add_scheduler_async_method("DeleteAllSessions", async |_lua, this, (target_type, target_id): (String, String)| {
-            let res = this.delete_all_sessions(&target_type, &target_id).await;
-            match res {
-                Ok(()) => Ok(()),
-                Err(e) => Err(LuaError::external(e.to_string())),
-            }
-        });
     }
 }

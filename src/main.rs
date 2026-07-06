@@ -1,11 +1,9 @@
 use sqlx::postgres::PgPoolOptions;
 
-use crate::{layers::sample::SampleLayerEvent, service::layer::{Layer, NewLayerOpts}};
-
 pub(crate) mod service;
 pub mod entity;
 pub mod types;
-mod layers;
+mod syscall;
 mod migrations;
 pub mod utils;
 pub mod config;
@@ -36,10 +34,10 @@ async fn main() {
         .expect("Could not initialize connection");
 
     // Load up SampleLayer
-    let th = layers::sample::samplelayer::SampleLayer::load(NewLayerOpts {
+    /*let th = layers::sample::samplelayer::SampleLayer::load(NewLayerOpts {
         config: serde_json::from_value(config["sample"].clone()).expect("Failed to deserialize config"),
         pool,
     });
 
-    th.dispatch(SampleLayerEvent::default()).await.expect("Failed to dispatch event");
+    th.dispatch(SampleLayerEvent::default()).await.expect("Failed to dispatch event");*/
 }

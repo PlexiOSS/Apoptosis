@@ -1,5 +1,6 @@
 use crate::{entity::{Entity, EntityFlags}, types::votes::{EntityVote, UserVote, VoteInfo}};
 
+#[derive(Debug)]
 pub struct EntityManager<E: Entity> {
     entity: E
 }

@@ -22,17 +22,3 @@ CREATE TABLE known_entities (
         FOREIGN KEY (_user_fk) REFERENCES users(user_id) 
         ON DELETE CASCADE
 );
-
-CREATE TABLE test_sessions (
-    id TEXT PRIMARY KEY,
-
-    -- The link to the entity
-    target_id TEXT NOT NULL,
-    target_type TEXT NOT NULL,
-
-    -- Points to the Gatekeeper
-    CONSTRAINT fk_sessions_entity
-        FOREIGN KEY (target_id, target_type) 
-        REFERENCES known_entities (target_id, target_type)
-        ON DELETE CASCADE
-);
