@@ -16,7 +16,13 @@ pub struct Config {
     /// Stratum server for listening to discord
     pub stratum_server: String,
     /// Stratum grpc access key
-    pub stratum_grpc_access_key: String
+    pub stratum_grpc_access_key: String,
+    /// Allowed redirect URLs
+    pub allowed_redirect_urls: Vec<String>,
+    /// Client ID
+    pub client_id: String,
+    /// Client Secret
+    pub client_secret: String
 }
 
 impl Config {

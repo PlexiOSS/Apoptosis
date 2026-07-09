@@ -20,4 +20,6 @@ pub struct Session {
     pub expiry: DateTime<Utc>,
     /// Known entity ID
     pub keid: uuid::Uuid,
+    /// Permission limits
+    pub perm_limits: Vec<String>
 }

@@ -9,19 +9,19 @@ use tower_http::cors::MaxAge;
 use crate::service::session::SessionPermit;
 use crate::syscall::AuthData;
 
-use super::{MSyscallArgs, MSyscallContext, MSyscallRet};
-use super::{MSyscallError, MSyscallHandler};
+use super::{SyscallArgs, SyscallContext, SyscallRet};
+use super::{SyscallError, SyscallHandler};
 
-impl IntoResponse for MSyscallRet {
+impl IntoResponse for SyscallRet {
     fn into_response(self) -> Response {
         (StatusCode::OK, Json(self)).into_response()
     }
 }
 
-impl IntoResponse for MSyscallError {
+impl IntoResponse for SyscallError {
     fn into_response(self) -> Response {
         match self {
-            MSyscallError::Ratelimited { retry_after, .. } => {
+            SyscallError::Ratelimited { retry_after, .. } => {
                 (
                     StatusCode::TOO_MANY_REQUESTS, 
                     [
@@ -42,12 +42,12 @@ struct AuthorizedUser {
 
 struct OptionalAuthorizedUser(Option<AuthorizedUser>);
 
-impl FromRequestParts<MSyscallHandler> for OptionalAuthorizedUser {
-    type Rejection = MSyscallError;
+impl FromRequestParts<SyscallHandler> for OptionalAuthorizedUser {
+    type Rejection = SyscallError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &MSyscallHandler,
+        state: &SyscallHandler,
     ) -> Result<Self, Self::Rejection> {
         if parts.headers.contains_key(AUTHORIZATION) {
             Ok(Self(Some(AuthorizedUser::from_request_parts(parts, state).await?)))
@@ -57,18 +57,18 @@ impl FromRequestParts<MSyscallHandler> for OptionalAuthorizedUser {
     }
 }
 
-impl FromRequestParts<MSyscallHandler> for AuthorizedUser {
-    type Rejection = MSyscallError;
+impl FromRequestParts<SyscallHandler> for AuthorizedUser {
+    type Rejection = SyscallError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &MSyscallHandler,
+        state: &SyscallHandler,
     ) -> Result<Self, Self::Rejection> {
         let token = parts
             .headers
             .get(AUTHORIZATION)
             .and_then(|h| h.to_str().ok())
-            .ok_or_else(|| MSyscallError::Unauthorized { reason: "No Authorization header found" })?;
+            .ok_or_else(|| SyscallError::Unauthorized { reason: "No Authorization header found" })?;
 
         let auth_response = state.session_manager.get_permit_for(token).await?;
 
@@ -77,15 +77,15 @@ impl FromRequestParts<MSyscallHandler> for AuthorizedUser {
                 data: AuthData { session, flags, manager } 
             }),
             SessionPermit::ApiBanned { .. } => {
-                return Err(MSyscallError::Unauthorized { reason: "You have banned from using this service" })
+                return Err(SyscallError::Unauthorized { reason: "You have banned from using this service" })
             }
-            SessionPermit::InvalidToken => return Err(MSyscallError::Unauthorized { reason: "The token provided is invalid. Check that it hasn't expired and try again?" }),
-            SessionPermit::EntityNotSupported => return Err(MSyscallError::Unauthorized { reason: "Unsupported entity type" }),
+            SessionPermit::InvalidToken => return Err(SyscallError::Unauthorized { reason: "The token provided is invalid. Check that it hasn't expired and try again?" }),
+            SessionPermit::EntityNotSupported => return Err(SyscallError::Unauthorized { reason: "Unsupported entity type" }),
         }
     }
 }
 
-pub fn create(handler: MSyscallHandler) -> axum::routing::IntoMakeService<Router> {
+pub fn create(handler: SyscallHandler) -> axum::routing::IntoMakeService<Router> {
     async fn logger(
         request: axum::extract::Request,
         next: axum::middleware::Next,
@@ -102,12 +102,12 @@ pub fn create(handler: MSyscallHandler) -> axum::routing::IntoMakeService<Router
 
     pub(super) async fn msyscall(
         user: OptionalAuthorizedUser,
-        State(handler): State<MSyscallHandler>,
-        Json(args): Json<MSyscallArgs>,
-    ) -> Result<MSyscallRet, MSyscallError> {
+        State(handler): State<SyscallHandler>,
+        Json(args): Json<SyscallArgs>,
+    ) -> Result<SyscallRet, SyscallError> {
         let ctx = if let Some(user) = user.0 { 
-            MSyscallContext::Api(user.data)
-        } else { MSyscallContext::ApiAnon };
+            SyscallContext::Api(user.data)
+        } else { SyscallContext::ApiAnon };
         let resp = handler.handle_syscall(args, ctx).await?;
         Ok(resp)
     }
@@ -116,11 +116,11 @@ pub fn create(handler: MSyscallHandler) -> axum::routing::IntoMakeService<Router
 
     router = router
         .route("/healthcheck", post(|| async { Json(()) }))
-        .route("/msyscall", post(msyscall))
+        .route("/syscall", post(msyscall))
         .fallback(get(|| async {
             (
                 StatusCode::NOT_FOUND,
-                "Use /msyscall for msyscall (insecure) and /msyscall/secure for msyscall (secure, staff-only)"
+                "Use /syscall for syscall (insecure) and /syscall/secure for syscall (secure, staff-only)"
             )
         }))
         .layer(

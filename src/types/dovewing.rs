@@ -1,17 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PlatformUser {
+/// The PartialUser of a user, which contains only the necessary fields for the API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartialUser {
+    /// The ID of the user
     pub id: String,
+    /// The username of the user
     pub username: String,
-    pub avatar: String,
-    pub display_name: String,
-    pub bot: bool,
-    pub status: String,
-}
-
-impl PartialEq for PlatformUser {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
+    /// The global name of the user
+    pub global_name: Option<String>,
+    /// The avatar hash of the user
+    pub avatar: Option<String>,
 }

@@ -1,4 +1,5 @@
 mod webapi;
+mod auth;
 
 use std::num::NonZeroU32;
 use std::{sync::Arc, time::Duration};
@@ -22,7 +23,7 @@ pub struct AuthData {
 /// The context in which the syscall is executing in
 #[derive(Debug)]
 #[allow(dead_code)]
-pub enum MSyscallContext {
+pub enum SyscallContext {
     /// API context (anonymous/logged out)
     ApiAnon,
     /// API context (api token)
@@ -32,12 +33,11 @@ pub enum MSyscallContext {
 }
 
 #[allow(dead_code)]
-impl MSyscallContext {
+impl SyscallContext {
     /// Returns if the given context is secure (admin/root access only)
     /// 
     /// A context is considered secure iff it originates from a user (with admin permissions)
-    /// running under the secure msyscall API endpoint (which verifies that the user has admin)
-    /// or if the request comes from the tw shell (which is assumed to have admin permissions)
+    /// running under the secure syscall API endpoint (which verifies that the user has admin)
     #[inline(always)]
     pub const fn is_secure(&self) -> bool {
         matches!(self, Self::ApiSecure(_))
@@ -54,12 +54,12 @@ impl MSyscallContext {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "op")]
-pub enum MSyscallArgs {
+pub enum SyscallArgs {
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op")]
-pub enum MSyscallRet {
+pub enum SyscallRet {
 }
 
 #[derive(Serialize, Debug)]
@@ -79,7 +79,7 @@ pub enum AuthError {
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "op")]
-pub enum MSyscallError {
+pub enum SyscallError {
     /// Generic error response
     Generic { message: String },
     /// Context is too insecure to perform this operation
@@ -100,14 +100,14 @@ pub enum MSyscallError {
     }
 }
 
-impl<T: Debug + Display + 'static> From<T> for MSyscallError {
+impl<T: Debug + Display + 'static> From<T> for SyscallError {
     fn from(value: T) -> Self {
         Self::Generic { message: value.to_string() }
     }
 }
 
 #[derive(Clone)]
-pub struct MSyscallHandler {
+pub struct SyscallHandler {
     pub(super) current_user: Arc<serenity::all::CurrentUser>,
     pub(super) reqwest: reqwest::Client,
     pub(super) stratum: Stratum,
@@ -117,8 +117,8 @@ pub struct MSyscallHandler {
     pub(super) session_manager: SessionManager
 }
 
-impl MSyscallHandler {
-    /// Creates a new MSyscallHandler
+impl SyscallHandler {
+    /// Creates a new SyscallHandler
     pub fn new(
         current_user: Arc<serenity::all::CurrentUser>, 
         stratum: Stratum,
@@ -137,7 +137,7 @@ impl MSyscallHandler {
         }
     }
 
-    /// Helper method to return msyscall ratelimits
+    /// Helper method to return syscall ratelimits
     fn user_limits() -> Result<Ratelimiter, crate::Error> {
         fn new(limit_per: u32, limit_time: Duration) -> DefaultKeyedRateLimiter<uuid::Uuid> {
             let quota =
@@ -173,9 +173,9 @@ impl MSyscallHandler {
         })
     }
 
-    pub(super) fn limit(&self, ctx: &MSyscallContext, op: &'static str) -> Result<(), MSyscallError> {
+    pub(super) fn limit(&self, ctx: &SyscallContext, op: &'static str) -> Result<(), SyscallError> {
         if let Some(keid) = ctx.keid() {
-            self.user_rl.check(op, keid).map_err(|e| MSyscallError::Ratelimited {
+            self.user_rl.check(op, keid).map_err(|e| SyscallError::Ratelimited {
                 retry_after: e.dur.as_secs_f32(),
                 bucket: e.bucket,
                 req_bucket: e.req_bucket
@@ -185,9 +185,9 @@ impl MSyscallHandler {
         }
     }
 
-    pub(super) fn sub_limit(&self, ctx: &MSyscallContext, op: &'static str) -> Result<(), MSyscallError> {
+    pub(super) fn sub_limit(&self, ctx: &SyscallContext, op: &'static str) -> Result<(), SyscallError> {
         if let Some(keid) = ctx.keid() {
-            self.user_rl.sub_check(op, keid).map_err(|e| MSyscallError::Ratelimited {
+            self.user_rl.sub_check(op, keid).map_err(|e| SyscallError::Ratelimited {
                 retry_after: e.dur.as_secs_f32(),
                 bucket: e.bucket,
                 req_bucket: e.req_bucket
@@ -198,7 +198,7 @@ impl MSyscallHandler {
     }
 
     /// Handles a syscall
-    pub async fn handle_syscall(&self, args: MSyscallArgs, ctx: MSyscallContext) -> Result<MSyscallRet, MSyscallError> {
+    pub async fn handle_syscall(&self, args: SyscallArgs, ctx: SyscallContext) -> Result<SyscallRet, SyscallError> {
         match args {
             /*MSyscallArgs::Bot { req } => {
                 Ok(MSyscallRet::Bot { data: req.exec(self, ctx).await? })

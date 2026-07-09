@@ -53,7 +53,7 @@ impl SessionManager {
 
         let session: Option<Session> = sqlx::query_as(
             "SELECT a.id as id, a.name as name, a.created_at as created_at, a.type AS session_type, a.target_type as target_type, a.target_id as target_id, 
-             a.expiry as expiry, ke.keid as keid
+             a.expiry as expiry, a.perm_limits as perm_limits, ke.keid as keid
              FROM api_sessions a 
              INNER JOIN known_entities ke ON ke.target_type = a.target_type AND ke.target_id = a.target_id 
              WHERE a.token = $1 AND a.expiry >= NOW()
@@ -61,6 +61,27 @@ impl SessionManager {
         )
         .bind(token)
         .fetch_optional(self.shared_db.pool())
+        .await?;
+
+        Ok(session)
+    }
+
+    /// Fetches the session of a entity given known non-expired token
+    pub async fn get_session_by_known_token_with<'c, E>(
+        executor: E,
+        token: &str,
+    ) -> Result<Session, sqlx::Error> 
+    where E: sqlx::PgExecutor<'c> {
+        let session: Session = sqlx::query_as(
+            "SELECT a.id as id, a.name as name, a.created_at as created_at, a.type AS session_type, a.target_type as target_type, a.target_id as target_id, 
+             a.expiry as expiry, a.perm_limits as perm_limits, ke.keid as keid
+             FROM api_sessions a 
+             INNER JOIN known_entities ke ON ke.target_type = a.target_type AND ke.target_id = a.target_id 
+             WHERE a.token = $1 AND a.expiry >= NOW()
+            ",
+        )
+        .bind(token)
+        .fetch_one(executor)
         .await?;
 
         Ok(session)
@@ -102,7 +123,7 @@ impl SessionManager {
     pub async fn get_sessions(&self, target_type: &str, target_id: &str) -> Result<Vec<Session>, crate::Error> {
         let sessions: Vec<Session> = sqlx::query_as(
             "SELECT a.id as id, a.name as name, a.created_at as created_at, a.type AS session_type, a.target_type as target_type, a.target_id as target_id, 
-            a.expiry as expiry, ke.keid as keid
+            a.expiry as expiry, a.perm_limits as perm_limits, ke.keid as keid
             FROM api_sessions a
             INNER JOIN known_entities ke ON ke.target_type = a.target_type AND ke.target_id = a.target_id
             WHERE a.target_type = $1 AND a.target_id = $2 AND a.expiry >= NOW()
@@ -117,35 +138,41 @@ impl SessionManager {
     }
 
     /// Create a new login session
-    pub async fn create_login_session(
-        &self,
+    pub async fn create_login_session<'c, E>(
+        executor: E,
         target_type: &str,
         target_id: &str,
-    ) -> Result<CreatedWebSession, crate::Error> {
-        self.create_session(target_type, target_id, None, "login", Utc::now() + LOGIN_EXPIRY_TIME).await
+    ) -> Result<CreatedWebSession, crate::Error> 
+    where E: sqlx::PgExecutor<'c> {
+        Self::create_session(executor, target_type, target_id, None, "login", Utc::now() + LOGIN_EXPIRY_TIME, &[]).await
     }
 
     /// Create a new API session
-    pub async fn create_api_session(
-        &self,
+    pub async fn create_api_session<'c, E>(
+        executor: E,
         target_type: &str,
         target_id: &str,
         name: Option<String>,
         expires_at: DateTime<Utc>,
-    ) -> Result<CreatedWebSession, crate::Error> {
-        self.create_session(target_type, target_id, name, "api", expires_at).await
+        perm_limits: &[String]
+    ) -> Result<CreatedWebSession, crate::Error> 
+    where E: sqlx::PgExecutor<'c> {
+        Self::create_session(executor, target_type, target_id, name, "api", expires_at, perm_limits).await
     }
 
     /// Internal method to create a session
     #[inline(always)]
-    async fn create_session(
-        &self,
+    async fn create_session<'c, E>(
+        executor: E,
         target_type: &str,
         target_id: &str,
         name: Option<String>,
         session_type: &str,
         expiry: DateTime<Utc>,
-    ) -> Result<CreatedWebSession, crate::Error> {
+        perm_limits: &[String]
+    ) -> Result<CreatedWebSession, crate::Error> 
+    where E: sqlx::PgExecutor<'c>
+    {
         // Generate a new session ID
         #[derive(sqlx::FromRow)]
         struct NewSession {
@@ -156,7 +183,7 @@ impl SessionManager {
         let token = Alphanumeric.sample_string(&mut rand::rng(), 128);
 
         let new_session: NewSession = sqlx::query_as(
-            "INSERT INTO api_sessions (target_type, target_id, type, token, expiry, name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            "INSERT INTO api_sessions (target_type, target_id, type, token, expiry, name, perm_limits) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
         )
         .bind(target_type)
         .bind(target_id)
@@ -164,7 +191,8 @@ impl SessionManager {
         .bind(&token)
         .bind(expiry)
         .bind(name)
-        .fetch_one(self.shared_db.pool())
+        .bind(perm_limits)
+        .fetch_one(executor)
         .await?;
 
         Ok(CreatedWebSession { 
@@ -200,6 +228,21 @@ impl SessionManager {
             .bind(target_id)
             .execute(self.shared_db.pool())
             .await?;
+
+        Ok(())
+    }
+
+    /// Creates a new web user
+    pub async fn create_web_user_from_oauth2<'c, E>(executor: E, user_id: &str) -> Result<(), crate::Error> 
+    where E: sqlx::PgExecutor<'c> {
+        // Insert the user into the database
+        // TODO: Also insert into known_entities table
+        sqlx::query(
+            "INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+        )
+        .bind(&user_id)
+        .execute(executor)
+        .await?;
 
         Ok(())
     }
